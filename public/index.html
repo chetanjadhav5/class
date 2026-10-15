@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lumina — Modern Matte Photo Gallery</title>
+  
+  <!-- Modern Typography from Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@300;400;500;600&family=Space+Grotesk:wght@400;500;600;700&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
+  
+  <!-- Matte Theme Stylesheet -->
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body class="obscura-theme">
+
+  <!-- Top Sticky Navigation Bar -->
+  <header class="gallery-header">
+    <div class="header-container">
+      
+      <!-- Brand & Title -->
+      <div class="header-brand">
+        <a href="#" class="brand-link" id="logoBtn">
+          <div class="brand-icon-box">
+            <span class="material-symbols-outlined brand-icon">filter_vintage</span>
+          </div>
+          <div class="brand-text">
+            <span class="brand-name">Lumina</span>
+            <span class="brand-edition">S3 + MySQL Archive</span>
+          </div>
+        </a>
+
+        <!-- Main Navigation Pills -->
+        <nav class="nav-pills">
+          <button class="nav-pill active" data-view="all">
+            <span class="material-symbols-outlined nav-icon">photo_library</span>
+            <span>Photos</span>
+          </button>
+          <button class="nav-pill" data-view="favorites">
+            <span class="material-symbols-outlined nav-icon">favorite</span>
+            <span>Favorites</span>
+          </button>
+        </nav>
+      </div>
+
+      <!-- Center Search & Telemetry Bar -->
+      <div class="header-search">
+        <div class="search-input-wrapper">
+          <span class="material-symbols-outlined search-icon">search</span>
+          <input 
+            type="text" 
+            id="searchInput" 
+            placeholder="Search S3 bucket photos by title, filename, camera, or tag..." 
+            autocomplete="off" 
+          />
+          <button class="search-clear-btn" id="searchClearBtn" title="Clear search">
+            <span class="material-symbols-outlined">close</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Right Action & System Status Area -->
+      <div class="header-actions">
+        <!-- Infrastructure Pill (S3, MySQL, EC2) -->
+        <div class="infra-status-pill" id="infraStatusPill" title="Cloud Infrastructure Telemetry">
+          <span class="status-dot online" id="statusDot"></span>
+          <span class="status-label" id="infraSummaryText">S3 &amp; MySQL Connected</span>
+          <span class="material-symbols-outlined chevron-icon">expand_more</span>
+          
+          <!-- Cloud Details Dropdown -->
+          <div class="infra-dropdown" id="infraDropdown">
+            <div class="dropdown-header">
+              <span class="dropdown-title">Cloud Infrastructure</span>
+              <span class="dropdown-badge" id="dropStatusBadge">Online</span>
+            </div>
+            
+            <div class="dropdown-item">
+              <div class="item-left">
+                <span class="material-symbols-outlined item-icon">cloud_queue</span>
+                <div>
+                  <div class="item-name">Amazon S3 Storage</div>
+                  <div class="item-meta" id="dropS3Bucket">mybucket-301126926087-ap-south-1-an</div>
+                </div>
+              </div>
+              <span class="item-tag s3-tag" id="dropS3Tag">ap-south-1</span>
+            </div>
+
+            <div class="dropdown-item">
+              <div class="item-left">
+                <span class="material-symbols-outlined item-icon">compress</span>
+                <div>
+                  <div class="item-name">Lambda 1:1 Pipeline</div>
+                  <div class="item-meta">Trigger: <code>new-*</code> &rarr; <code>compressed-*</code></div>
+                </div>
+              </div>
+              <span class="item-tag lambda-tag">1:1 Square</span>
+            </div>
+
+            <div class="dropdown-item">
+              <div class="item-left">
+                <span class="material-symbols-outlined item-icon">database</span>
+                <div>
+                  <div class="item-name">MySQL (RDS) Database</div>
+                  <div class="item-meta" id="dropDbHost">localhost:3306 (photogallery)</div>
+                </div>
+              </div>
+              <span class="item-tag mysql-tag" id="dropDbTag">Active</span>
+            </div>
+
+            <div class="dropdown-item">
+              <div class="item-left">
+                <span class="material-symbols-outlined item-icon">router</span>
+                <div>
+                  <div class="item-name">EC2 &amp; Local Network</div>
+                  <div class="item-meta" id="dropEc2Ip">52.66.9.153</div>
+                </div>
+              </div>
+              <span class="item-tag ec2-tag">Port 3000</span>
+            </div>
+
+            <div class="dropdown-footer">
+              <button class="sync-s3-btn" id="syncS3Btn" title="Rescan S3 bucket for newly compressed photos">
+                <span class="material-symbols-outlined">sync</span>
+                <span>Rescan S3 Bucket Now</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Primary Upload Trigger CTA -->
+        <button class="btn btn-primary" id="openUploadBtn">
+          <span class="material-symbols-outlined btn-icon">add_photo_alternate</span>
+          <span>Upload</span>
+        </button>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- Main Viewport Container -->
+  <main class="gallery-main">
+    
+    <!-- Floating Timeline Scrubber (Right Rail) -->
+    <aside class="timeline-rail" id="timelineRail">
+      <div class="rail-container">
+        <button class="rail-tick active" data-filter="all" title="View All S3 Photos">
+          <span class="rail-label">All</span>
+          <span class="rail-pip"></span>
+        </button>
+        <button class="rail-tick" data-filter="today" title="Today">
+          <span class="rail-label">Today</span>
+          <span class="rail-pip"></span>
+        </button>
+        <button class="rail-tick" data-filter="yesterday" title="Yesterday">
+          <span class="rail-label">Yesterday</span>
+          <span class="rail-pip"></span>
+        </button>
+        <button class="rail-tick" data-filter="month" title="This Month">
+          <span class="rail-label">This Month</span>
+          <span class="rail-pip"></span>
+        </button>
+        <div class="rail-divider"></div>
+        <span class="rail-year">2026</span>
+      </div>
+    </aside>
+
+    <!-- Content Workspace -->
+    <div class="content-wrapper">
+      
+      <!-- Top Gallery Density & Filter Control Bar -->
+      <section class="gallery-control-bar">
+        <!-- View Filters -->
+        <div class="control-tags">
+          <button class="filter-chip active" data-tag="all">All S3 Photos</button>
+          <button class="filter-chip" data-tag="S3-Bucket">From S3 Bucket</button>
+          <button class="filter-chip" data-tag="Lambda-Compressed">Compressed</button>
+          <button class="filter-chip" data-tag="S3-Upload">Recent Uploads</button>
+        </div>
+
+        <!-- Density & Telemetry Controls -->
+        <div class="control-tools">
+          <div class="density-group">
+            <button class="density-btn" data-cols="2" title="2 Columns">
+              <span class="material-symbols-outlined">grid_view</span>
+            </button>
+            <button class="density-btn active" data-cols="3" title="3 Columns (Default)">
+              <span class="material-symbols-outlined">view_column</span>
+            </button>
+            <button class="density-btn" data-cols="4" title="4 Columns">
+              <span class="material-symbols-outlined">view_comfy</span>
+            </button>
+          </div>
+          <div class="tools-divider"></div>
+          <div class="photo-counter-badge">
+            <span class="counter-number" id="photoCount">0</span>
+            <span class="counter-label">photos in S3 bucket</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Photographic Grid Section -->
+      <section class="gallery-grid-section">
+        <!-- Active Filter Indicator -->
+        <div class="active-filter-banner" id="activeFilterBanner" style="display: none;">
+          <span class="banner-text">Filtering S3 photos by: <strong id="filterName">Tag</strong></span>
+          <button class="banner-reset-btn" id="resetFilterBtn">Reset Filter</button>
+        </div>
+
+        <!-- The Photo Grid -->
+        <div class="photo-grid cols-3" id="photoGrid">
+          <!-- Dynamically populated from MySQL (strictly from S3 bucket) -->
+        </div>
+
+        <!-- Empty State (Shown if no photos match or S3 bucket is empty) -->
+        <div class="empty-state" id="emptyState" style="display: none;">
+          <div class="empty-icon-circle">
+            <span class="material-symbols-outlined">cloud_off</span>
+          </div>
+          <h3>No photographs found in S3 bucket</h3>
+          <p>The gallery only displays pictures from your S3 bucket. Click below to upload your first photograph directly to S3 and store its metadata in MySQL.</p>
+          <button class="btn btn-primary" onclick="document.getElementById('openUploadBtn').click()">
+            <span class="material-symbols-outlined">add_photo_alternate</span>
+            <span>Upload Photo to S3</span>
+          </button>
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+  <!-- Sticky Bottom Selection Action Toolbar -->
+  <div class="selection-action-bar" id="selectionBar">
+    <div class="selection-pill">
+      <div class="selection-count-badge" id="selectedCount">0</div>
+      <span class="selection-text">Selected</span>
+    </div>
+    <div class="selection-divider"></div>
+    <div class="selection-tools">
+      <button class="selection-btn" id="bulkDownloadBtn" title="Download from S3">
+        <span class="material-symbols-outlined">download</span>
+      </button>
+      <button class="selection-btn" id="bulkFavBtn" title="Add to Favorites in MySQL">
+        <span class="material-symbols-outlined">favorite</span>
+      </button>
+      <button class="selection-btn danger" id="bulkDeleteBtn" title="Delete from S3 and MySQL">
+        <span class="material-symbols-outlined">delete</span>
+      </button>
+      <button class="selection-dismiss-btn" id="deselectAllBtn">Deselect</button>
+    </div>
+  </div>
+
+  <!-- UPLOAD MODAL -->
+  <div class="modal-backdrop" id="uploadModal">
+    <div class="modal-card">
+      
+      <!-- Modal Header -->
+      <div class="modal-header">
+        <div class="header-left">
+          <div class="modal-icon-badge">
+            <span class="material-symbols-outlined">cloud_upload</span>
+          </div>
+          <div>
+            <h2 class="modal-title">Upload to Amazon S3</h2>
+            <p class="modal-subtitle">Uploads with <code>new-</code> prefix &rarr; Lambda triggers 1:1 crop &amp; compression &rarr; renames to <code>compressed-</code> &amp; deletes original</p>
+          </div>
+        </div>
+        <button class="modal-close-btn" id="closeUploadModalBtn">
+          <span class="material-symbols-outlined">close</span>
+        </button>
+      </div>
+
+      <!-- Modal Body -->
+      <div class="modal-body">
+        
+        <!-- Quality Preference Selector -->
+        <div class="quality-selector-box">
+          <div class="quality-label-group">
+            <span class="material-symbols-outlined quality-icon">tune</span>
+            <div>
+              <span class="quality-title">AWS Lambda Pipeline</span>
+              <span class="quality-desc">Uploaded as <code>new-filename</code> &rarr; Lambda delivers 1:1 <code>compressed-filename</code> &amp; deletes original</span>
+            </div>
+          </div>
+          <div class="quality-toggle-group">
+            <button class="quality-btn active" data-quality="original">
+              <span class="material-symbols-outlined">verified</span>
+              <span>High Quality</span>
+            </button>
+            <button class="quality-btn" data-quality="saver">
+              <span class="material-symbols-outlined">compress</span>
+              <span>Web Compressed</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Drag & Drop Zone -->
+        <div class="drop-zone" id="dropZone">
+          <input type="file" id="fileInput" accept="image/*,.arw,.cr3,.nef,.dng,.raw,.heic" class="hidden-input" />
+          
+          <div class="drop-zone-content">
+            <div class="drop-icon-stack">
+              <div class="icon-circle">
+                <span class="material-symbols-outlined">add_photo_alternate</span>
+              </div>
+              <div class="arrow-badge">
+                <span class="material-symbols-outlined">north</span>
+              </div>
+            </div>
+            
+            <h3 class="drop-title">Drag and drop your photographs here</h3>
+            <p class="drop-subtitle">
+              or <span class="drop-highlight">click to browse</span> from your device
+            </p>
+
+            <div class="format-chips">
+              <span class="chip">JPEG</span>
+              <span class="chip">PNG</span>
+              <span class="chip">WEBP</span>
+              <span class="chip accent">RAW (ARW, CR3, DNG)</span>
+              <span class="chip">Up to 50MB</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- File Preview & Metadata Form -->
+        <div class="upload-form-box" id="uploadFormBox" style="display: none;">
+          <div class="form-preview-row">
+            <div class="form-preview-thumb">
+              <img id="uploadPreviewImg" src="" alt="Selected Preview" />
+              <span class="thumb-format-badge" id="previewFormat">JPG</span>
+            </div>
+            <div class="form-file-info">
+              <div class="file-name" id="previewFilename">filename.jpg</div>
+              <div class="file-specs" id="previewSpecs">Original: 12.4 MB • Will compress to ~2.8 MB</div>
+            </div>
+          </div>
+
+          <div class="metadata-grid">
+            <div class="form-group">
+              <label for="metaTitle">Photograph Title</label>
+              <input type="text" id="metaTitle" placeholder="e.g. Minato-ku Twilight" />
+            </div>
+            <div class="form-group">
+              <label for="metaCamera">Camera Body</label>
+              <input type="text" id="metaCamera" placeholder="e.g. Sony Alpha A7 IV" />
+            </div>
+            <div class="form-group">
+              <label for="metaLens">Lens / Optics</label>
+              <input type="text" id="metaLens" placeholder="e.g. FE 35mm F1.4 GM" />
+            </div>
+            <div class="form-group">
+              <label for="metaSettings">EXIF Specs (Focal / Aperture / Shutter / ISO)</label>
+              <div class="exif-input-row">
+                <input type="text" id="metaFocal" placeholder="35mm" />
+                <input type="text" id="metaAperture" placeholder="ƒ/1.8" />
+                <input type="text" id="metaShutter" placeholder="1/250s" />
+                <input type="text" id="metaIso" placeholder="ISO 400" />
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="metaLocation">Location</label>
+              <input type="text" id="metaLocation" placeholder="e.g. Tokyo, Japan" />
+            </div>
+            <div class="form-group">
+              <label for="metaTags">Tags (Comma-separated)</label>
+              <input type="text" id="metaTags" placeholder="Architecture, Night, Editorial" />
+            </div>
+          </div>
+        </div>
+
+        <!-- Real-Time Upload Pipeline Queue -->
+        <div class="pipeline-queue" id="pipelineQueue" style="display: none;">
+          <div class="queue-header">
+            <div class="queue-status">
+              <span class="queue-title">Ingestion &amp; Compression Pipeline</span>
+              <span class="queue-pulse"></span>
+            </div>
+            <span class="queue-metric" id="queueMetric">Uploading to S3 bucket...</span>
+          </div>
+
+          <div class="progress-track">
+            <div class="progress-bar" id="progressBar" style="width: 0%;"></div>
+          </div>
+
+          <div class="pipeline-steps">
+            <div class="pipeline-step active" id="step1">
+              <span class="step-num">1</span>
+              <span>Upload to S3 Bucket</span>
+            </div>
+            <div class="pipeline-step" id="step2">
+              <span class="step-num">2</span>
+              <span>Lambda 1:1 Crop &amp; Compression (<code>compressed-</code>)</span>
+            </div>
+            <div class="pipeline-step" id="step3">
+              <span class="step-num">3</span>
+              <span>Save Record in MySQL (RDS)</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="cancelUploadBtn">Cancel</button>
+        <button class="btn btn-primary" id="startUploadBtn" disabled>
+          <span class="material-symbols-outlined">cloud_upload</span>
+          <span>Upload to S3 &amp; MySQL</span>
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- PHOTO DETAIL & EXIF METADATA LIGHTBOX -->
+  <div class="lightbox-stage" id="lightboxModal">
+    <div class="lightbox-viewport" id="lightboxViewport">
+      
+      <!-- Top Floating Navigation Bar -->
+      <div class="lightbox-top-bar">
+        <button class="back-pill-btn" id="closeLightboxBtn">
+          <span class="material-symbols-outlined">arrow_back</span>
+          <span>Back to Photos</span>
+        </button>
+
+        <div class="photo-capsule-badge" id="photoCapsuleBadge">
+          <span class="capsule-counter" id="capsuleIndex">1 of 1</span>
+          <span class="capsule-dot"></span>
+          <span class="capsule-title" id="capsuleTitle">Photograph</span>
+        </div>
+
+        <div class="action-tools-hub">
+          <button class="tool-btn" id="detailFavBtn" title="Favorite">
+            <span class="material-symbols-outlined" id="detailFavIcon">favorite</span>
+          </button>
+          <button class="tool-btn" id="detailDownloadBtn" title="Download Compressed Image from S3">
+            <span class="material-symbols-outlined">download</span>
+          </button>
+          <button class="tool-btn danger" id="detailDeleteBtn" title="Delete from S3 and MySQL">
+            <span class="material-symbols-outlined">delete</span>
+          </button>
+          <div class="tool-divider"></div>
+          <button class="tool-btn active-accent" id="toggleDrawerBtn" title="Toggle EXIF &amp; MySQL Metadata">
+            <span class="material-symbols-outlined">info</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Main Photographic Canvas Area -->
+      <div class="lightbox-canvas">
+        <button class="nav-chevron left" id="prevPhotoBtn" title="Previous photo">
+          <span class="material-symbols-outlined">chevron_left</span>
+        </button>
+
+        <div class="photo-frame-container" id="photoFrameContainer">
+          <img id="lightboxImage" src="" alt="Photograph Detail" />
+          
+          <div class="ambient-scrim">
+            <div class="scrim-left">
+              <span class="material-symbols-outlined scrim-icon">verified</span>
+              <span class="scrim-text" id="scrimBadge">1:1 COMPRESSED IN S3 • compressed-filename</span>
+            </div>
+            <span class="scrim-hint">Full resolution S3 master</span>
+          </div>
+        </div>
+
+        <button class="nav-chevron right" id="nextPhotoBtn" title="Next photo">
+          <span class="material-symbols-outlined">chevron_right</span>
+        </button>
+
+        <!-- Bottom Quick-Scrubber Ribbon -->
+        <div class="thumbnail-ribbon-bar">
+          <div class="ribbon-strip" id="ribbonStrip">
+            <!-- Dynamically populated from S3 photos -->
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Right Side EXIF & MySQL Metadata Drawer -->
+    <aside class="metadata-drawer" id="metadataDrawer">
+      <div class="drawer-header">
+        <div class="drawer-headline">
+          <span class="material-symbols-outlined">database</span>
+          <h3>MySQL (RDS) Metadata</h3>
+        </div>
+        <button class="drawer-close-btn" id="closeDrawerBtn">
+          <span class="material-symbols-outlined">close</span>
+        </button>
+      </div>
+
+      <div class="drawer-scrollable">
+        
+        <!-- Photo Basic Summary -->
+        <div class="drawer-section">
+          <h4 class="drawer-title" id="drawerTitle">Photo Title</h4>
+          <p class="drawer-desc" id="drawerDesc">No additional description</p>
+          <div class="drawer-tags" id="drawerTags"></div>
+        </div>
+
+        <!-- Section: Chronological Anchor -->
+        <div class="drawer-section">
+          <div class="section-label">Date &amp; Ingestion</div>
+          <div class="telemetry-card">
+            <span class="material-symbols-outlined card-icon">calendar_today</span>
+            <div>
+              <div class="card-main" id="drawerDate">Monday, Oct 24, 2026</div>
+              <div class="card-sub" id="drawerTime">6:42 PM • S3 Ingested</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section: Hardware & Optics Specs -->
+        <div class="drawer-section">
+          <div class="section-label">Camera &amp; Optics Specs</div>
+          <div class="specs-grid">
+            <div class="spec-tile">
+              <span class="spec-label">Camera</span>
+              <span class="spec-value" id="drawerCamera">Fine Art Camera</span>
+            </div>
+            <div class="spec-tile">
+              <span class="spec-label">Lens</span>
+              <span class="spec-value" id="drawerLens">Prime Lens</span>
+            </div>
+            <div class="spec-tile">
+              <span class="spec-label">Focal Length</span>
+              <span class="spec-value" id="drawerFocal">35mm</span>
+            </div>
+            <div class="spec-tile">
+              <span class="spec-label">Aperture</span>
+              <span class="spec-value" id="drawerAperture">ƒ/2.0</span>
+            </div>
+            <div class="spec-tile">
+              <span class="spec-label">Shutter Speed</span>
+              <span class="spec-value" id="drawerShutter">1/250s</span>
+            </div>
+            <div class="spec-tile">
+              <span class="spec-label">ISO Sensitivity</span>
+              <span class="spec-value" id="drawerIso">100</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section: S3 Object Storage & Lambda Compression -->
+        <div class="drawer-section">
+          <div class="section-label">AWS S3 &amp; Lambda Compression</div>
+          <div class="telemetry-card">
+            <span class="material-symbols-outlined card-icon">cloud_done</span>
+            <div class="storage-details">
+              <div class="storage-row">
+                <span class="meta-label">S3 Compressed Key:</span>
+                <code class="meta-code" id="drawerS3Key">compress/filename.jpg</code>
+              </div>
+              <div class="storage-row">
+                <span class="meta-label">S3 Original Key:</span>
+                <code class="meta-code" id="drawerOriginalKey">filename.jpg</code>
+              </div>
+              <div class="storage-row">
+                <span class="meta-label">Storage Savings:</span>
+                <span class="savings-badge" id="drawerSavings">75% Saved by Lambda</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section: MySQL (RDS) Relational Record -->
+        <div class="drawer-section">
+          <div class="section-label">MySQL (RDS) Row Data</div>
+          <div class="mysql-key-box">
+            <span class="mysql-key-label">TABLE:</span>
+            <code class="mysql-key-val">photos WHERE id = '<span id="drawerDbId">id</span>'</code>
+          </div>
+          <div class="mysql-payload-code">
+            <pre><code id="drawerDbJson">{}</code></pre>
+          </div>
+        </div>
+
+        <!-- Section: Color Palette Swatches -->
+        <div class="drawer-section">
+          <div class="section-label">Tonal Depth &amp; Palette Swatches</div>
+          <div class="swatches-row" id="drawerSwatches">
+            <span class="swatch" style="background-color: #131318;"></span>
+            <span class="swatch" style="background-color: #35343a;"></span>
+            <span class="swatch" style="background-color: #d4af37;"></span>
+            <span class="swatch" style="background-color: #1e4e4c;"></span>
+          </div>
+        </div>
+
+      </div>
+    </aside>
+  </div>
+
+  <!-- Notification Toast -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- Application Logic -->
+  <script src="app.js"></script>
+</body>
+</html>
