@@ -87,8 +87,7 @@ DB_NAME=photogalleryDB
 # Server & EC2 Deployment
 PUBLIC_IP=your_public_ip_or_localhost
 PORT=3000
-HOST=0.0.0.0
-ALLOWED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
+ALLOWED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000,http://${PUBLIC_IP}:3000,http://${PUBLIC_IP},https://${PUBLIC_IP}
 ```
 
 ---

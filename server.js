@@ -1,4 +1,8 @@
-require('dotenv').config();
+const dotenv = require('dotenv');
+const dotenvExpand = require('dotenv-expand');
+const myEnv = dotenv.config();
+dotenvExpand.expand(myEnv);
+
 const express = require('express');
 const cors = require('cors');
 const multer = require('multer');
@@ -14,6 +18,9 @@ const {
 } = require('@aws-sdk/client-s3');
 
 const app = express();
+// Enable trust proxy for AWS Application Load Balancer (ALB)
+app.set('trust proxy', true);
+
 const PORT = parseInt(process.env.PORT, 10) || 3000;
 const HOST = process.env.HOST || '0.0.0.0';
 const PUBLIC_IP = process.env.PUBLIC_IP || 'localhost';
@@ -23,15 +30,30 @@ const COMPRESSED_PREFIX = (process.env.S3_COMPRESSED_PREFIX || 'compress/').repl
 const FALLBACK_DB_PATH = path.join(__dirname, 'metadata-fallback.json');
 
 // -------------------------------------------------------------
-// CORS Configuration for EC2 & Localhost
+// CORS Configuration for EC2, AWS Load Balancer & Localhost
 // -------------------------------------------------------------
-const allowedOrigins = process.env.ALLOWED_ORIGINS
-  ? process.env.ALLOWED_ORIGINS.split(',').map((o) => o.trim())
+let allowedOrigins = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(',').map((o) => o.trim()).filter(Boolean)
   : ['http://localhost:3000', 'http://127.0.0.1:3000'];
 
+// Replace any leftover ${PUBLIC_IP} or $PUBLIC_IP tokens if passed unparsed
+allowedOrigins = allowedOrigins.map((origin) =>
+  origin.replace(/\$\{PUBLIC_IP\}|\$PUBLIC_IP/g, PUBLIC_IP)
+);
+
+// Automatically include Load Balancer / Public IP variants (HTTP, HTTPS, with and without port)
 if (PUBLIC_IP && PUBLIC_IP !== 'localhost') {
-  allowedOrigins.push(`http://${PUBLIC_IP}:${PORT}`);
-  allowedOrigins.push(`http://${PUBLIC_IP}`);
+  const dynamicOrigins = [
+    `http://${PUBLIC_IP}`,
+    `http://${PUBLIC_IP}:${PORT}`,
+    `https://${PUBLIC_IP}`,
+    `https://${PUBLIC_IP}:${PORT}`
+  ];
+  dynamicOrigins.forEach((o) => {
+    if (!allowedOrigins.includes(o)) {
+      allowedOrigins.push(o);
+    }
+  });
 }
 
 app.use(
@@ -528,7 +550,9 @@ app.get('/api/status', async (req, res) => {
     port: PORT,
     accessUrls: {
       local: `http://localhost:${PORT}`,
-      ec2: PUBLIC_IP !== 'localhost' ? `http://${PUBLIC_IP}:${PORT}` : null
+      directEc2: PUBLIC_IP !== 'localhost' ? `http://${PUBLIC_IP}:${PORT}` : null,
+      loadBalancerOrDomain: PUBLIC_IP !== 'localhost' ? `http://${PUBLIC_IP}` : null,
+      loadBalancerHttps: PUBLIC_IP !== 'localhost' ? `https://${PUBLIC_IP}` : null
     },
     s3: {
       configured: Boolean(bucket),
@@ -837,11 +861,13 @@ app.listen(PORT, HOST, async () => {
   console.log(`=============================================================`);
   console.log(` Host Bound:     ${HOST}:${PORT}`);
   console.log(` Local Access:   http://localhost:${PORT}`);
-  console.log(` EC2 Access:     http://${PUBLIC_IP}:${PORT}`);
+  console.log(` Direct EC2:     http://${PUBLIC_IP}:${PORT}`);
+  console.log(` ALB / Public:   http://${PUBLIC_IP} (or https://${PUBLIC_IP})`);
   console.log(` Active S3:      ${process.env.AWS_BUCKET_NAME}`);
   console.log(` Compressed Key: ${COMPRESSED_PREFIX}<filename>`);
   console.log(` DB Host:        ${dbActiveHost}`);
   console.log(` DB Status:      ${dbConnected ? 'CONNECTED' : 'STANDBY'}`);
+  console.log(` Reverse Proxy:  TRUST PROXY ENABLED (ALB Ready)`);
   console.log(` Source:         STRICT S3 BUCKET ONLY`);
   console.log(`=============================================================`);
 });
